@@ -66,20 +66,33 @@ class BusinessDetailController extends Controller
      */
     public function show(Request $request)
     {
-        $storeId = $request->input('store_id') ?? $request->user()->store_id;
+        $user = $request->user();
 
-        $businessDetail = BusinessDetail::where('store_id', $storeId)->first();
+        // Fetch all stores owned by the logged-in user
+        $stores = \App\Models\Store::where('owner_id', $user->id)->get();
 
-        if (!$businessDetail) {
+        if ($stores->isEmpty()) {
             return response()->json([
                 'status' => false,
-                'message' => 'Business details not found'
+                'message' => 'No stores found for this user'
+            ], 404);
+        }
+
+        // Fetch business details for all those stores
+        $storeIds = $stores->pluck('id'); // extract all store IDs
+        $businessDetails = BusinessDetail::whereIn('store_id', $storeIds)->get();
+
+        if ($businessDetails->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No business details found for these stores'
             ], 404);
         }
 
         return response()->json([
             'status' => true,
-            'data' => $businessDetail
+            'stores' => $stores,
+            'business_details' => $businessDetails
         ]);
     }
 
